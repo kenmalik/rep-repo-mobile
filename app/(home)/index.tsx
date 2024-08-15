@@ -1,38 +1,31 @@
-import { Link } from "expo-router";
+import { Link, useFocusEffect } from "expo-router";
 import * as SQLite from "expo-sqlite";
 import { Pressable, Text, ScrollView, StyleSheet } from "react-native";
 import AntDesign from "@expo/vector-icons/AntDesign";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 interface Workout {
   id: number;
   title: string;
 }
 
-const db = SQLite.openDatabaseSync("data.db");
-
-db.execSync(`
-DROP TABLE IF EXISTS workouts_test;
-CREATE TABLE IF NOT EXISTS workouts_test(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title VARCHAR(30)
-);
-INSERT INTO workouts_test(title) VALUES
-  ("First workout"),
-  ("Second workout"),
-  ("Third workout"),
-  ("So many workouts"),
-  ("Abracadabra"),
-  ("Long title for a workout to see what happens");
-`);
-console.log("Test table created");
-
 export default function Index() {
-  const [workouts, setWorkouts] = useState<Workout[]>(getWorkouts());
+  const db = SQLite.useSQLiteContext();
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
 
-  useEffect(() => {
-    console.log("Workout added");
-  }, [workouts]);
+  useFocusEffect(
+    useCallback(() => {
+      let ignore = false;
+      getWorkouts(db).then((result) => {
+        if (!ignore) {
+          setWorkouts(result);
+        }
+      });
+      return () => {
+        ignore = true;
+      };
+    }, [db]),
+  );
 
   return (
     <ScrollView>
@@ -40,10 +33,7 @@ export default function Index() {
         <WorkoutCard key={workout.id} id={workout.id} title={workout.title} />
       ))}
       <Link href={"/newWorkout"} asChild>
-        <Pressable
-          style={style.newWorkoutButton}
-          onPress={() => console.log("Hello")}
-        >
+        <Pressable style={style.newWorkoutButton}>
           <AntDesign name="plus" size={24} color="black" />
         </Pressable>
       </Link>
@@ -51,7 +41,7 @@ export default function Index() {
   );
 }
 
-function getWorkouts() {
+async function getWorkouts(db: SQLite.SQLiteDatabase) {
   return db.getAllSync("SELECT * FROM workouts_test") as Workout[];
 }
 
@@ -71,7 +61,7 @@ const style = StyleSheet.create({
     marginTop: 32,
     marginLeft: 16,
     marginRight: 16,
-    backgroundColor: "#fff",
+    backgroundColor: "white",
   },
   cardContent: {
     padding: 32,
