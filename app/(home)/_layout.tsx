@@ -8,7 +8,6 @@ export default function HomeLayout() {
       assetSource={{ assetId: require("./assets/test-data.db") }}
     >
       <Stack>
-        <Stack.Screen name="index" options={{ title: "Workouts" }} />
         <Stack.Screen
           name="newWorkout"
           options={{ presentation: "modal", title: "New Workout" }}
