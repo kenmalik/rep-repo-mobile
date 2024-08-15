@@ -1,30 +1,58 @@
 import { Link } from "expo-router";
-import { Pressable, View, Text, ScrollView, StyleSheet } from "react-native";
+import * as SQLite from "expo-sqlite";
+import { Pressable, Text, ScrollView, StyleSheet } from "react-native";
 import AntDesign from "@expo/vector-icons/AntDesign";
+import { useEffect, useState } from "react";
 
 interface Workout {
   id: number;
   title: string;
 }
 
-const testWorkouts: Workout[] = [
-  { id: 1, title: "Hello" },
-  { id: 2, title: "World" },
-  { id: 3, title: "My workout" },
-  { id: 4, title: "Another workout" },
-  { id: 5, title: "So many workouts" },
-  { id: 6, title: "Abracadabra" },
-  { id: 7, title: "Long title for a workout to see what happens" },
-];
+const db = SQLite.openDatabaseSync("data.db");
+
+db.execSync(`
+DROP TABLE IF EXISTS workouts_test;
+CREATE TABLE IF NOT EXISTS workouts_test(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title VARCHAR(30)
+);
+INSERT INTO workouts_test(title) VALUES
+  ("First workout"),
+  ("Second workout"),
+  ("Third workout"),
+  ("So many workouts"),
+  ("Abracadabra"),
+  ("Long title for a workout to see what happens");
+`);
+console.log("Test table created");
 
 export default function Index() {
+  const [workouts, setWorkouts] = useState<Workout[]>(getWorkouts());
+
+  useEffect(() => {
+    console.log("Workout added");
+  }, [workouts]);
+
   return (
     <ScrollView>
-      {testWorkouts.map((workout) => (
-        <WorkoutCard id={workout.id} title={workout.title} />
+      {workouts.map((workout) => (
+        <WorkoutCard key={workout.id} id={workout.id} title={workout.title} />
       ))}
+      <Link href={"/newWorkout"} asChild>
+        <Pressable
+          style={style.newWorkoutButton}
+          onPress={() => console.log("Hello")}
+        >
+          <AntDesign name="plus" size={24} color="black" />
+        </Pressable>
+      </Link>
     </ScrollView>
   );
+}
+
+function getWorkouts() {
+  return db.getAllSync("SELECT * FROM workouts_test") as Workout[];
 }
 
 function WorkoutCard({ id, title }: { id: number; title: string }) {
@@ -56,5 +84,18 @@ const style = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     maxWidth: "85%",
+  },
+  newWorkoutButton: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 32,
+    marginBottom: 64,
+    marginLeft: 16,
+    marginRight: 16,
+    padding: 32,
+    borderWidth: 1,
+    borderColor: "black",
+    borderStyle: "dashed",
   },
 });
