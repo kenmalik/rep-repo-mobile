@@ -139,17 +139,30 @@ function WorkoutCard({
   onDelete: Function;
   onEdit: Function;
 }) {
+  const [inputHeight, setInputHeight] = useState<number>(24);
+
   return (
     <View style={style.card}>
       <Link href={`/workouts/${id}`} asChild>
         <Pressable style={style.cardContent} disabled={editing}>
           {editing ? (
             <TextInput
-              style={[style.cardTitle, style.cardTitleInput]}
+              style={[
+                style.cardTitle,
+                style.cardTitleInput,
+                { height: inputHeight },
+              ]}
               onChangeText={(newTitle) => {
                 onEdit(id, newTitle);
               }}
               value={title}
+              multiline
+              scrollEnabled={false}
+              onContentSizeChange={(e) =>
+                setInputHeight(e.nativeEvent.contentSize.height)
+              }
+              returnKeyType="done"
+              blurOnSubmit
             />
           ) : (
             <Text style={style.cardTitle}>{title}</Text>
@@ -189,6 +202,7 @@ const style = StyleSheet.create({
     maxWidth: "85%",
   },
   cardTitleInput: {
+    padding: 0,
     height: 24,
     width: "85%",
   },
