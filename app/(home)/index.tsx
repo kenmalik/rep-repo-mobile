@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Button,
+  TextInput,
 } from "react-native";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
@@ -21,6 +22,7 @@ export default function Index() {
   const db = SQLite.useSQLiteContext();
   const [editing, setEditing] = useState<boolean>(false);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [originalWorkouts, setOriginalWorkouts] = useState<Workout[]>([]);
 
   function deleteWorkout(id: number) {
     console.log(`Deleting workout ${id}`);
@@ -28,6 +30,20 @@ export default function Index() {
       console.log(result),
     );
     setWorkouts(workouts.filter((workout) => workout.id !== id));
+  }
+
+  function editWorkout(id: number, newTitle: string) {
+    setWorkouts(
+      workouts.map((workout) => {
+        if (workout.id === id) {
+          return {
+            ...workout,
+            title: newTitle,
+          };
+        }
+        return workout;
+      }),
+    );
   }
 
   useFocusEffect(
@@ -49,12 +65,40 @@ export default function Index() {
       <Stack.Screen
         options={{
           title: "Workouts",
-          headerRight: () => (
-            <Button
-              onPress={() => setEditing(!editing)}
-              title={editing ? "Done" : "Edit"}
-            />
-          ),
+          headerRight: () =>
+            editing ? (
+              <Button
+                onPress={() => {
+                  for (const workout of workouts) {
+                    db.runAsync(
+                      "UPDATE workouts_test SET title = ? WHERE id = ?",
+                      workout.title,
+                      workout.id,
+                    ).then((result) => console.log(result));
+                  }
+                  setEditing(!editing);
+                }}
+                title="Done"
+              />
+            ) : (
+              <Button
+                onPress={() => {
+                  setOriginalWorkouts(workouts);
+                  setEditing(!editing);
+                }}
+                title="Edit"
+              />
+            ),
+          headerLeft: () =>
+            editing && (
+              <Button
+                onPress={() => {
+                  setWorkouts(originalWorkouts);
+                  setEditing(!editing);
+                }}
+                title="Cancel"
+              />
+            ),
         }}
       />
       <ScrollView>
@@ -65,6 +109,7 @@ export default function Index() {
             title={workout.title}
             editing={editing}
             onDelete={deleteWorkout}
+            onEdit={editWorkout}
           />
         ))}
         <Link href={"/newWorkout"} asChild>
@@ -86,17 +131,29 @@ function WorkoutCard({
   title,
   editing,
   onDelete,
+  onEdit,
 }: {
   id: number;
   title: string;
   editing: boolean;
   onDelete: Function;
+  onEdit: Function;
 }) {
   return (
     <View style={style.card}>
       <Link href={`/workouts/${id}`} asChild>
         <Pressable style={style.cardContent} disabled={editing}>
-          <Text style={style.cardTitle}>{title}</Text>
+          {editing ? (
+            <TextInput
+              style={[style.cardTitle, style.cardTitleInput]}
+              onChangeText={(newTitle) => {
+                onEdit(id, newTitle);
+              }}
+              value={title}
+            />
+          ) : (
+            <Text style={style.cardTitle}>{title}</Text>
+          )}
           {!editing && <AntDesign name="right" size={24} color="black" />}
         </Pressable>
       </Link>
@@ -130,6 +187,10 @@ const style = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     maxWidth: "85%",
+  },
+  cardTitleInput: {
+    height: 24,
+    width: "85%",
   },
   newWorkoutButton: {
     display: "flex",
