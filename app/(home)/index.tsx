@@ -12,6 +12,7 @@ import {
 import AntDesign from "@expo/vector-icons/AntDesign";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useCallback, useState } from "react";
+import { randomUUID } from "expo-crypto";
 
 interface Workout {
   id: number;
@@ -104,7 +105,7 @@ export default function Index() {
       <ScrollView>
         {workouts.map((workout) => (
           <WorkoutCard
-            key={workout.id}
+            key={randomUUID()}
             id={workout.id}
             title={workout.title}
             editing={editing}

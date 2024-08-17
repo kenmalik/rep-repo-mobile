@@ -1,6 +1,6 @@
-import { Link, useLocalSearchParams, useNavigation } from "expo-router";
+import { Stack, Link, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { SQLiteDatabase, useSQLiteContext } from "expo-sqlite";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ScrollView,
   View,
@@ -13,72 +13,98 @@ import {
 } from "react-native";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import { Picker } from "@react-native-picker/picker";
+import { randomUUID } from "expo-crypto";
 
 interface Exercise {
   id: number;
   name: string;
   weight: number;
-  group: string;
+  exercise_group: string;
 }
-
-const testExercises: Exercise[] = [
-  { id: 1, name: "Squat", weight: 130, group: "Lower" },
-  { id: 2, name: "Deadlift", weight: 230, group: "Lower" },
-  { id: 3, name: "Bench Press", weight: 225, group: "Upper" },
-  { id: 4, name: "Overhead Press", weight: 130, group: "Upper" },
-  { id: 5, name: "Row", weight: 15, group: "Supplementary" },
-];
 
 export default function Workout() {
   const db = useSQLiteContext();
-  const navigation = useNavigation();
   const { id } = useLocalSearchParams();
-  const [exercises, setExercises] = useState<Exercise[]>(testExercises);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [title, setTitle] = useState<string>("...");
 
-  useEffect(() => {
-    navigation.setOptions({ title: `Workout ${id}` });
-  }, [navigation]);
+  useFocusEffect(
+    useCallback(() => {
+      let ignore = false;
+      getExercises(db, Number(id))
+        .then((result) => {
+          if (!ignore) {
+            setExercises(result);
+            getTitle(db, Number(id)).then((result) => setTitle(result.title));
+            console.log(result);
+          }
+        })
+        .catch(console.error);
+      return () => {
+        ignore = true;
+      };
+    }, [db]),
+  );
 
   return (
-    <ScrollView style={styles.container}>
-      {exercises.map((exercise) => (
-        <Exercise
-          id={exercise.id}
-          key={exercise.id}
-          name={exercise.name}
-          weight={exercise.weight}
-          group={exercise.group}
-        />
-      ))}
-      <Link href={"/"} asChild>
-        <Pressable style={styles.newExerciseButton}>
-          <AntDesign name="plus" size={24} color="black" />
-        </Pressable>
-      </Link>
-    </ScrollView>
+    <>
+      <Stack.Screen options={{ title: title }} />
+      <ScrollView style={styles.container}>
+        {exercises.map((exercise) => (
+          <Exercise
+            id={exercise.id}
+            key={randomUUID()}
+            name={exercise.name}
+            weight={exercise.weight}
+            exercise_group={exercise.exercise_group}
+          />
+        ))}
+        <Link href={"/"} asChild>
+          <Pressable style={styles.newExerciseButton}>
+            <AntDesign name="plus" size={24} color="black" />
+          </Pressable>
+        </Link>
+      </ScrollView>
+    </>
   );
 }
 
-function Exercise({ id, name, weight, group }: Exercise) {
+async function getTitle(db: SQLiteDatabase, id: number) {
+  return (await db.getFirstAsync(
+    "SELECT title FROM workouts_test WHERE id = ?",
+    id,
+  )) as { title: string };
+}
+
+function Exercise({
+  id,
+  name,
+  weight,
+  exercise_group: group,
+}: {
+  id: number;
+  name: string;
+  weight: number;
+  exercise_group: string;
+}) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [isBarbell, setIsBarbell] = useState<boolean>(false);
   const [roundStep, setRoundStep] = useState<number>(0);
 
   return (
     <View style={styles.exerciseCard}>
-      <View style={styles.exerciseTopBar}>
-        <ExerciseTitleBlock name={name} weight={weight} group={group} />
-        <Pressable
-          style={styles.expandButton}
-          onPress={() => setIsExpanded(!isExpanded)}
-        >
-          {isExpanded ? (
-            <AntDesign name="up" size={16} color="black" />
-          ) : (
-            <AntDesign name="down" size={16} color="black" />
-          )}
-        </Pressable>
-      </View>
+      <Pressable
+        style={styles.exerciseTopBar}
+        onPress={() => setIsExpanded(!isExpanded)}
+      >
+        <ExerciseTitleBlock name={name} group={group} />
+
+        {isExpanded ? (
+          <AntDesign name="up" size={16} color="black" />
+        ) : (
+          <AntDesign name="down" size={16} color="black" />
+        )}
+      </Pressable>
       {isExpanded && (
         <View style={styles.percentagesDropdown}>
           <Text style={{ textAlign: "center", marginBottom: 16, fontSize: 16 }}>
@@ -136,15 +162,7 @@ function Exercise({ id, name, weight, group }: Exercise) {
   );
 }
 
-function ExerciseTitleBlock({
-  name,
-  weight,
-  group,
-}: {
-  name: string;
-  weight: number;
-  group: string;
-}) {
+function ExerciseTitleBlock({ name, group }: { name: string; group: string }) {
   return (
     <View>
       <Text style={{ fontWeight: "bold", fontSize: 24 }}>{name}</Text>
@@ -232,7 +250,7 @@ function PercentagesList({
       <View>
         {percentages.slice(0, percentages.length / 2).map((percentage) => (
           <View
-            key={percentage}
+            key={randomUUID()}
             style={{ display: "flex", flexDirection: "row" }}
           >
             <Text style={{ fontWeight: "bold", width: 35 }}>
@@ -245,7 +263,7 @@ function PercentagesList({
       <View>
         {percentages.slice(percentages.length / 2).map((percentage) => (
           <View
-            key={percentage}
+            key={randomUUID()}
             style={{ display: "flex", flexDirection: "row" }}
           >
             <Text style={{ fontWeight: "bold", width: 35 }}>
@@ -259,10 +277,11 @@ function PercentagesList({
   );
 }
 
-async function getExercises(db: SQLiteDatabase) {
-  db.runAsync(
-    "SELECT * FROM exercises_test INNER JOIN workouts_test ON workout_id = workouts_test.id",
-  );
+async function getExercises(db: SQLiteDatabase, id: number) {
+  return (await db.getAllAsync(
+    "SELECT exercises_test.id, name, weight, exercise_group FROM exercises_test INNER JOIN workouts_test ON workout_id = workouts_test.id WHERE workout_id = ?",
+    id,
+  )) as Exercise[];
 }
 
 const styles = StyleSheet.create({
